@@ -1,0 +1,113 @@
+@use '@angular/material' as mat;
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', 'Helvetica Neue', sans-serif;
+  background-color: #f5f5f7;
+}
+
+/* ===================== Palette RTS ===================== */
+:root {
+  --rts-primary: #0a4d8c;
+  --rts-primary-dark: #073a6b;
+  --rts-accent: #e8a317;
+  --rts-success: #2e7d32;
+  --rts-warning: #ef6c00;
+  --rts-danger: #c62828;
+  --rts-gray-50: #fafafa;
+  --rts-gray-100: #f5f5f5;
+  --rts-gray-200: #eeeeee;
+  --rts-gray-500: #9e9e9e;
+  --rts-gray-700: #616161;
+  --rts-gray-900: #212121;
+}
+
+/* ===================== Utilitaires ===================== */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.gap-2 { gap: 8px; }
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+.w-full { width: 100%; }
+.flex-1 { flex: 1; }
+
+.page-container {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  h1 {
+    margin: 0;
+    color: var(--rts-primary);
+    font-weight: 500;
+  }
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* Tableaux Material : uniforme */
+table.mat-mdc-table {
+  width: 100%;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mat-mdc-header-cell {
+  background-color: var(--rts-gray-100);
+  font-weight: 600;
+  color: var(--rts-gray-900);
+}
+
+/* Badges statut */
+.badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-block;
+
+  &.badge-success { background: #e8f5e9; color: var(--rts-success); }
+  &.badge-warning { background: #fff3e0; color: var(--rts-warning); }
+  &.badge-danger  { background: #ffebee; color: var(--rts-danger); }
+  &.badge-info    { background: #e3f2fd; color: var(--rts-primary); }
+  &.badge-neutral { background: var(--rts-gray-200); color: var(--rts-gray-700); }
+}
+
+.amount-positive { color: var(--rts-success); font-weight: 500; }
+.amount-negative { color: var(--rts-danger); font-weight: 500; }
+
+/* Scrollbar légère */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rts-gray-500);
+  border-radius: 4px;
+}
+
+/* Snackbars */
+.snackbar-success { --mdc-snackbar-container-color: var(--rts-success); }
+.snackbar-error   { --mdc-snackbar-container-color: var(--rts-danger); }
+.snackbar-info    { --mdc-snackbar-container-color: var(--rts-primary); }

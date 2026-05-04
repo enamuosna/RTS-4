@@ -1,0 +1,70 @@
+/* ===== Écarts (caisse théorique vs caisse réelle) ===== */
+.ecart-positif {
+  color: var(--rts-success);
+  font-weight: 500;
+}
+
+.ecart-negatif {
+  color: var(--rts-danger);
+  font-weight: 500;
+}
+
+.ecart-nul {
+  color: var(--rts-gray-500);
+}
+
+/* ===== Filter bar ===== */
+.filter-bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* ===== Actions cell ===== */
+.actions-cell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.actions-col {
+  width: 200px;
+}
+
+/* "par <validateur>" : petit label gris discret */
+.validated-by {
+  font-size: 11px;
+  color: var(--rts-gray-500);
+}
+
+/* ===== Bouton d'export Excel (vert Microsoft Excel) ===== */
+.export-button {
+  background: #217346 !important; /* vert Excel caractéristique */
+  color: white !important;
+}
+
+.export-button mat-icon {
+  margin-right: 0 !important;
+}
+
+.exporting-spinner {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ===== Helpers de table ===== */
+.text-right {
+  text-align: right;
+}
+
+.amount-cell {
+  font-weight: 500;
+}
+
+/* ===== Empty state ===== */
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--rts-gray-500);
+}

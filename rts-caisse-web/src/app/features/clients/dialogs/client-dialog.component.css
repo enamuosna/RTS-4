@@ -1,0 +1,10 @@
+.dialog-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  min-width: 560px;
+}
+
+.span-2 {
+  grid-column: span 2;
+}

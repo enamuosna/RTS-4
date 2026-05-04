@@ -1,0 +1,76 @@
+# =============================================================
+#  RTS Caisse - docker-compose pour le DEV LOCAL
+# =============================================================
+#  Usage typique : tu codes le backend dans Rider/IntelliJ, tu lances
+#  ng serve pour le frontend, et seuls Postgres + pgAdmin sont
+#  containerises.
+#
+#  Demarrer :  docker compose -f docker-compose.dev.yml up -d
+#  Arreter  :  docker compose -f docker-compose.dev.yml down
+#
+#  Le port Postgres est expose sur l'hote pour que :
+#    - Rider/IntelliJ s'y connecte directement
+#    - Le backend Spring Boot lance hors Docker s'y connecte aussi
+# =============================================================
+
+name: rts-caisse-dev
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: rts-caisse-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-rts_caisse_db}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-amc2622amc}
+      TZ: Africa/Dakar
+    ports:
+      # Postgres expose sur l'hote pour acces depuis Rider/IntelliJ
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - rts-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rts_user} -d ${POSTGRES_DB:-rts_caisse_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: rts-caisse-dev-pgadmin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL:-admin@rts.sn}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      # Desactive la verification de deliverabilite des emails
+      PGADMIN_CONFIG_CHECK_EMAIL_DELIVERABILITY: "False"
+      # Accepte les TLD reserves (.local, .test, .example, .invalid)
+      # → permet d'utiliser admin@rts.local sans erreur de validation
+      PGADMIN_CONFIG_ALLOW_SPECIAL_EMAIL_DOMAINS: '["local", "test", "example", "invalid"]'
+      TZ: Africa/Dakar
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    networks:
+      - rts-dev
+
+volumes:
+  postgres_dev_data:
+    name: rts-caisse-dev-postgres-data
+  pgadmin_dev_data:
+    name: rts-caisse-dev-pgadmin-data
+
+networks:
+  rts-dev:
+    name: rts-caisse-dev-network
+    driver: bridge

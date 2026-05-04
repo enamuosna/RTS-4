@@ -1,0 +1,51 @@
+/* ===== Lignes annulées ===== */
+.row-annulee {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+/* ===== Filter bar ===== */
+.filter-bar {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.caisse-select {
+  width: 320px;
+}
+
+/* ===== Cellules de la table ===== */
+.numero-cell {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.caissier-cell {
+  font-size: 12px;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.amount-cell {
+  font-weight: 500;
+}
+
+/* ===== Colonne d'actions ===== */
+.actions-col {
+  width: 60px;
+}
+
+.cancelled-icon {
+  color: var(--rts-danger);
+}
+
+/* ===== Empty state ===== */
+.empty-state {
+  text-align: center;
+  padding: 48px;
+  color: var(--rts-gray-500);
+}

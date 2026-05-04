@@ -1,0 +1,12 @@
+.search-field {
+  width: 360px;
+  margin-bottom: 16px;
+}
+
+.raison-sociale-cell {
+  font-weight: 500;
+}
+
+.actions-col {
+  width: 60px;
+}

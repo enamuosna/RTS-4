@@ -1,0 +1,32 @@
+// ===========================================================
+//  Patch pour SecurityConfig.java (classe sn.rts.caisse.config.SecurityConfig)
+// ===========================================================
+//
+//  Ajouter la ligne ci-dessous DANS le bloc .authorizeHttpRequests(auth -> auth...)
+//  AVANT la ligne '.anyRequest().authenticated()', typiquement juste après les autres
+//  .requestMatchers(...) des routes /api/reporting et /api/journaux.
+//
+//  Cette règle rend les reçus PDF accessibles à TOUT utilisateur authentifié
+//  (ADMIN, SUPERVISEUR et CAISSIER). Le service backend vérifie déjà que
+//  l'opération existe — aucune donnée ne fuit.
+//
+// ===========================================================
+
+// AVANT :
+//     .requestMatchers("/api/reporting/**").hasAnyRole("ADMIN", "SUPERVISEUR")
+//     .requestMatchers(HttpMethod.POST, "/api/journaux/*/valider")
+//         .hasAnyRole("ADMIN", "SUPERVISEUR")
+//
+//     // Tout le reste nécessite une authentification
+//     .anyRequest().authenticated()
+
+// APRÈS (insérer la ligne /api/recus avant .anyRequest()) :
+//     .requestMatchers("/api/reporting/**").hasAnyRole("ADMIN", "SUPERVISEUR")
+//     .requestMatchers(HttpMethod.POST, "/api/journaux/*/valider")
+//         .hasAnyRole("ADMIN", "SUPERVISEUR")
+//
+//     // Reçus PDF : accessibles à tout caissier/superviseur/admin authentifié
+//     .requestMatchers("/api/recus/**").authenticated()
+//
+//     // Tout le reste nécessite une authentification
+//     .anyRequest().authenticated()

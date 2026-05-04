@@ -1,0 +1,71 @@
+<mat-card class="login-card">
+  <div class="brand-block">
+    <div class="logo">RTS</div>
+    <h1>RTS Caisse</h1>
+    <div class="subtitle">Administration — Radiodiffusion Télévision Sénégalaise</div>
+  </div>
+
+  @if (errorMessage()) {
+    <div class="error-banner">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <mat-form-field appearance="outline">
+      <mat-label>Identifiant</mat-label>
+      <mat-icon matPrefix>person</mat-icon>
+      <input
+        matInput
+        formControlName="login"
+        autocomplete="username"
+        placeholder="ex : admin"
+      />
+      @if (form.controls.login.hasError('required') && form.controls.login.touched) {
+        <mat-error>L'identifiant est requis.</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Mot de passe</mat-label>
+      <mat-icon matPrefix>lock</mat-icon>
+      <input
+        matInput
+        [type]="showPassword() ? 'text' : 'password'"
+        formControlName="motDePasse"
+        autocomplete="current-password"
+      />
+      <button
+        matSuffix
+        type="button"
+        mat-icon-button
+        (click)="togglePassword()"
+        [attr.aria-label]="'Afficher le mot de passe'"
+      >
+        <mat-icon>{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+      </button>
+      @if (form.controls.motDePasse.hasError('required') && form.controls.motDePasse.touched) {
+        <mat-error>Le mot de passe est requis.</mat-error>
+      }
+    </mat-form-field>
+
+    <button
+      mat-flat-button
+      color="primary"
+      type="submit"
+      [disabled]="form.invalid || loading()"
+    >
+      @if (loading()) {
+        <mat-spinner diameter="20" class="inline-spinner"></mat-spinner>
+        <span>Connexion…</span>
+      } @else {
+        <span>Se connecter</span>
+      }
+    </button>
+  </form>
+
+  <div class="footer">
+    © {{ annee }} Radiodiffusion Télévision Sénégalaise
+  </div>
+</mat-card>

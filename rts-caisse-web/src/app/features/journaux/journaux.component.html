@@ -1,0 +1,154 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Journaux de caisse</h1>
+  </div>
+
+  <div class="filter-bar">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic">
+      <mat-label>Date</mat-label>
+      <input
+        matInput
+        [matDatepicker]="picker"
+        [(ngModel)]="selectedDate"
+        (dateChange)="charger()"
+      />
+      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
+    </mat-form-field>
+
+    <button mat-stroked-button (click)="charger()">
+      <mat-icon>refresh</mat-icon>Actualiser
+    </button>
+  </div>
+
+  <table mat-table [dataSource]="journaux()">
+    <ng-container matColumnDef="date">
+      <th mat-header-cell *matHeaderCellDef>Date</th>
+      <td mat-cell *matCellDef="let j">{{ j.dateJournal | date: 'dd/MM/yyyy' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="caisse">
+      <th mat-header-cell *matHeaderCellDef>Caisse</th>
+      <td mat-cell *matCellDef="let j">{{ j.caisseLibelle }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="caissier">
+      <th mat-header-cell *matHeaderCellDef>Caissier</th>
+      <td mat-cell *matCellDef="let j">{{ j.caissierNomComplet }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="fond">
+      <th mat-header-cell *matHeaderCellDef class="text-right">Fond</th>
+      <td mat-cell *matCellDef="let j" class="text-right">
+        {{ j.fondOuverture | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="entrees">
+      <th mat-header-cell *matHeaderCellDef class="text-right">Entrées</th>
+      <td mat-cell *matCellDef="let j" class="text-right amount-positive">
+        {{ j.totalEntrees | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="sorties">
+      <th mat-header-cell *matHeaderCellDef class="text-right">Sorties</th>
+      <td mat-cell *matCellDef="let j" class="text-right amount-negative">
+        {{ j.totalSorties | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="theorique">
+      <th mat-header-cell *matHeaderCellDef class="text-right">Théorique</th>
+      <td mat-cell *matCellDef="let j" class="text-right amount-cell">
+        {{ j.soldeTheorique | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="reel">
+      <th mat-header-cell *matHeaderCellDef class="text-right">Réel</th>
+      <td mat-cell *matCellDef="let j" class="text-right amount-cell">
+        @if (j.soldeReel !== null && j.soldeReel !== undefined) {
+          {{ j.soldeReel | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+        } @else {
+          —
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="ecart">
+      <th mat-header-cell *matHeaderCellDef class="text-right">Écart</th>
+      <td mat-cell *matCellDef="let j" class="text-right" [class]="classeEcart(j)">
+        @if (j.ecart !== null && j.ecart !== undefined) {
+          {{ j.ecart | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+        } @else {
+          —
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="statut">
+      <th mat-header-cell *matHeaderCellDef>Statut</th>
+      <td mat-cell *matCellDef="let j">
+        @if (j.valideeParId) {
+          <span class="badge badge-success">Validé</span>
+        } @else if (j.cloture) {
+          <span class="badge badge-warning">Clôturé</span>
+        } @else {
+          <span class="badge badge-info">Ouvert</span>
+        }
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef class="actions-col"></th>
+      <td mat-cell *matCellDef="let j">
+        <div class="actions-cell">
+          <!-- Bouton Export Excel (toujours disponible) -->
+          <button
+            mat-flat-button
+            class="export-button"
+            matTooltip="Télécharger le journal au format Excel"
+            (click)="exporter(j)"
+            [disabled]="exportEnCours() === j.id"
+          >
+            @if (exportEnCours() === j.id) {
+              <mat-spinner diameter="16" class="exporting-spinner"></mat-spinner>
+            } @else {
+              <mat-icon>table_view</mat-icon>
+            }
+            Excel
+          </button>
+
+          <!-- Bouton Valider (uniquement ADMIN/SUPERVISEUR sur journal clôturé non validé) -->
+          @if (j.cloture && !j.valideeParId && peutValider()) {
+            <button
+              mat-stroked-button
+              color="primary"
+              matTooltip="Contresigner la clôture"
+              (click)="valider(j)"
+            >
+              <mat-icon>verified</mat-icon>Valider
+            </button>
+          } @else if (j.valideeParId) {
+            <span
+              class="validated-by"
+              matTooltip="Validé par {{ j.valideeParNom }}"
+            >
+              par {{ j.valideeParNom }}
+            </span>
+          }
+        </div>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="colonnes"></tr>
+    <tr mat-row *matRowDef="let row; columns: colonnes"></tr>
+  </table>
+
+  @if (journaux().length === 0) {
+    <div class="empty-state">
+      Aucun journal pour cette date.
+    </div>
+  }
+</div>

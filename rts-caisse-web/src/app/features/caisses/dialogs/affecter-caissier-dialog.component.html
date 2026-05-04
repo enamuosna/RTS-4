@@ -1,0 +1,24 @@
+<h2 mat-dialog-title>Affecter un caissier</h2>
+
+<mat-dialog-content class="dialog-content">
+  <mat-form-field appearance="outline" class="full-width">
+    <mat-label>Caissier</mat-label>
+    <mat-select [(value)]="caissierId">
+      @for (u of caissiers(); track u.id) {
+        <mat-option [value]="u.id">{{ u.prenom }} {{ u.nom }} ({{ u.matricule }})</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="dialogRef.close()">Annuler</button>
+  <button
+    mat-flat-button
+    color="primary"
+    [disabled]="!caissierId"
+    (click)="dialogRef.close(caissierId)"
+  >
+    Affecter
+  </button>
+</mat-dialog-actions>

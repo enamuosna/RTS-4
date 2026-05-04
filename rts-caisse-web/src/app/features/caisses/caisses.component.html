@@ -1,0 +1,61 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Caisses</h1>
+    <button mat-flat-button color="primary" (click)="creer()">
+      <mat-icon>add</mat-icon>Nouvelle caisse
+    </button>
+  </div>
+
+  <div class="card-grid">
+    @for (c of caisses(); track c.id) {
+      <div
+        class="caisse-card"
+        [class.ouverte]="c.statut === 'OUVERTE'"
+        [class.suspendue]="c.statut === 'SUSPENDUE'"
+      >
+        <div class="card-header">
+          <div>
+            <div class="caisse-code">{{ c.code }}</div>
+            <div class="caisse-libelle">{{ c.libelle }}</div>
+            <div class="caisse-emplacement">
+              <mat-icon class="icon-inline">place</mat-icon>
+              {{ c.emplacement || 'Non spécifié' }}
+            </div>
+          </div>
+          <span class="badge" [class]="statutBadge(c.statut)">{{ c.statut }}</span>
+        </div>
+
+        <div class="caisse-meta">
+          <div>
+            <div class="solde">
+              {{ c.soldeCourant | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+            </div>
+            <div class="caissier">
+              @if (c.caissierNomComplet) {
+                {{ c.caissierNomComplet }}
+              } @else {
+                Aucun caissier affecté
+              }
+            </div>
+          </div>
+
+          <button mat-icon-button [matMenuTriggerFor]="menu">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #menu="matMenu">
+            <button mat-menu-item (click)="modifier(c)">
+              <mat-icon>edit</mat-icon><span>Modifier</span>
+            </button>
+            <button mat-menu-item (click)="affecter(c)">
+              <mat-icon>person</mat-icon><span>Affecter un caissier</span>
+            </button>
+            <button mat-menu-item (click)="suspendre(c)">
+              <mat-icon>{{ c.statut === 'SUSPENDUE' ? 'play_arrow' : 'pause' }}</mat-icon>
+              <span>{{ c.statut === 'SUSPENDUE' ? 'Réactiver' : 'Suspendre' }}</span>
+            </button>
+          </mat-menu>
+        </div>
+      </div>
+    }
+  </div>
+</div>

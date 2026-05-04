@@ -1,0 +1,17 @@
+# Variables sensibles : ne JAMAIS commit le .env réel
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs locaux
+*.log
+logs/

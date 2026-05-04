@@ -1,0 +1,88 @@
+:host {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0a4d8c 0%, #073a6b 100%);
+  padding: 24px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 32px;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+/* ===== Brand block ===== */
+.brand-block {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo {
+  width: 72px;
+  height: 72px;
+  background: var(--rts-accent);
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rts-primary-dark);
+  font-weight: 700;
+  font-size: 24px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(232, 163, 23, 0.3);
+}
+
+h1 {
+  margin: 0 0 4px 0;
+  color: var(--rts-primary);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.subtitle {
+  color: var(--rts-gray-500);
+  font-size: 14px;
+}
+
+/* ===== Form ===== */
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+button[type='submit'] {
+  margin-top: 12px;
+  height: 48px;
+  font-size: 15px;
+}
+
+.inline-spinner {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+/* ===== Error banner ===== */
+.error-banner {
+  background: #ffebee;
+  color: var(--rts-danger);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+/* ===== Footer ===== */
+.footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--rts-gray-500);
+}

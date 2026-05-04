@@ -1,0 +1,41 @@
+<h2 mat-dialog-title>{{ data ? 'Modifier' : 'Nouveau' }} client</h2>
+
+<form [formGroup]="form" (ngSubmit)="valider()">
+  <mat-dialog-content class="dialog-content">
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Raison sociale</mat-label>
+      <input matInput formControlName="raisonSociale" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>NINEA / RCCM / CNI</mat-label>
+      <input matInput formControlName="identifiantFiscal" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Téléphone</mat-label>
+      <input matInput formControlName="telephone" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>E-mail</mat-label>
+      <input matInput type="email" formControlName="email" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Adresse</mat-label>
+      <input matInput formControlName="adresse" />
+    </mat-form-field>
+
+    @if (data) {
+      <mat-slide-toggle formControlName="actif" class="span-2">Actif</mat-slide-toggle>
+    }
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" (click)="dialogRef.close()">Annuler</button>
+    <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid">
+      <mat-icon>check</mat-icon>Enregistrer
+    </button>
+  </mat-dialog-actions>
+</form>

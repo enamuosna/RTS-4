@@ -1,0 +1,73 @@
+.caisse-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-left: 4px solid var(--rts-primary);
+  position: relative;
+}
+
+.caisse-card.ouverte {
+  border-left-color: var(--rts-success);
+}
+
+.caisse-card.suspendue {
+  border-left-color: var(--rts-warning);
+  opacity: 0.75;
+}
+
+/* ===== Card header ===== */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.caisse-code {
+  color: var(--rts-primary);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.caisse-libelle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--rts-gray-900);
+  margin: 4px 0;
+}
+
+.caisse-emplacement {
+  color: var(--rts-gray-500);
+  font-size: 12px;
+}
+
+/* Petite icône inline (place) à côté de l'emplacement */
+.icon-inline {
+  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
+
+/* ===== Card meta (footer) ===== */
+.caisse-meta {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rts-gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.solde {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--rts-primary);
+}
+
+.caissier {
+  font-size: 12px;
+  color: var(--rts-gray-700);
+}

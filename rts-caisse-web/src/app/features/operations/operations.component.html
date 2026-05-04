@@ -1,0 +1,120 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Opérations de caisse</h1>
+  </div>
+
+  <div class="filter-bar">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="caisse-select">
+      <mat-label>Caisse</mat-label>
+      <mat-select [(value)]="caisseSelectionneeId" (selectionChange)="charger()">
+        @for (c of caisses(); track c.id) {
+          <mat-option [value]="c.id">{{ c.code }} — {{ c.libelle }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (caisseSelectionneeId) {
+    <table mat-table [dataSource]="operations()">
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date</th>
+        <td mat-cell *matCellDef="let o" [class.row-annulee]="o.annulee">
+          {{ o.dateOperation | date: 'dd/MM/yyyy HH:mm' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="numero">
+        <th mat-header-cell *matHeaderCellDef>Numéro</th>
+        <td mat-cell *matCellDef="let o" class="numero-cell">
+          {{ o.numeroRecu }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="type">
+        <th mat-header-cell *matHeaderCellDef>Type</th>
+        <td mat-cell *matCellDef="let o">
+          <span
+            class="badge"
+            [class]="o.typeOperation === 'ENTREE' ? 'badge-success' : 'badge-danger'"
+          >
+            {{ o.typeOperation }}
+          </span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="categorie">
+        <th mat-header-cell *matHeaderCellDef>Catégorie</th>
+        <td mat-cell *matCellDef="let o">{{ o.categorieLibelle }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="motif">
+        <th mat-header-cell *matHeaderCellDef>Motif</th>
+        <td mat-cell *matCellDef="let o">{{ o.motif }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="mode">
+        <th mat-header-cell *matHeaderCellDef>Mode</th>
+        <td mat-cell *matCellDef="let o">{{ o.modePaiement }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="caissier">
+        <th mat-header-cell *matHeaderCellDef>Caissier</th>
+        <td mat-cell *matCellDef="let o" class="caissier-cell">
+          {{ o.caissierNomComplet }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="montant">
+        <th mat-header-cell *matHeaderCellDef class="text-right">Montant</th>
+        <td
+          mat-cell
+          *matCellDef="let o"
+          class="text-right amount-cell"
+          [class]="o.typeOperation === 'ENTREE' ? 'amount-positive' : 'amount-negative'"
+        >
+          {{ o.montant | currency: 'XOF':'symbol':'1.0-0':'fr' }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="actions-col"></th>
+        <td mat-cell *matCellDef="let o">
+          @if (!o.annulee) {
+            <button
+              mat-icon-button
+              color="warn"
+              matTooltip="Annuler (contre-passation)"
+              (click)="annuler(o)"
+            >
+              <mat-icon>undo</mat-icon>
+            </button>
+          } @else {
+            <mat-icon
+              class="cancelled-icon"
+              matTooltip="{{ o.motifAnnulation }}"
+            >cancel</mat-icon>
+          }
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="colonnes"></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: colonnes"
+        [class.row-annulee]="row.annulee"
+      ></tr>
+    </table>
+
+    <mat-paginator
+      [length]="total()"
+      [pageSize]="pageSize"
+      [pageIndex]="pageIndex"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="changerPage($event)"
+    ></mat-paginator>
+  } @else {
+    <div class="empty-state">
+      Sélectionnez une caisse pour afficher les opérations.
+    </div>
+  }
+</div>

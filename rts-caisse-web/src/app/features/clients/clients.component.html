@@ -1,0 +1,62 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1>Clients</h1>
+    <button mat-flat-button color="primary" (click)="creer()">
+      <mat-icon>add_business</mat-icon>Nouveau client
+    </button>
+  </div>
+
+  <mat-form-field appearance="outline" class="search-field">
+    <mat-label>Rechercher</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input
+      matInput
+      [(ngModel)]="terme"
+      (ngModelChange)="recherche$.next($event)"
+      placeholder="Raison sociale, NINEA, téléphone…"
+    />
+  </mat-form-field>
+
+  <table mat-table [dataSource]="clients()">
+    <ng-container matColumnDef="raisonSociale">
+      <th mat-header-cell *matHeaderCellDef>Raison sociale</th>
+      <td mat-cell *matCellDef="let c" class="raison-sociale-cell">{{ c.raisonSociale }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="ninea">
+      <th mat-header-cell *matHeaderCellDef>NINEA / CNI</th>
+      <td mat-cell *matCellDef="let c">{{ c.identifiantFiscal || '-' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="telephone">
+      <th mat-header-cell *matHeaderCellDef>Téléphone</th>
+      <td mat-cell *matCellDef="let c">{{ c.telephone || '-' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="email">
+      <th mat-header-cell *matHeaderCellDef>E-mail</th>
+      <td mat-cell *matCellDef="let c">{{ c.email || '-' }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="actif">
+      <th mat-header-cell *matHeaderCellDef>État</th>
+      <td mat-cell *matCellDef="let c">
+        <span class="badge" [class]="c.actif ? 'badge-success' : 'badge-neutral'">
+          {{ c.actif ? 'Actif' : 'Inactif' }}
+        </span>
+      </td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef class="actions-col"></th>
+      <td mat-cell *matCellDef="let c">
+        <button mat-icon-button (click)="modifier(c)">
+          <mat-icon>edit</mat-icon>
+        </button>
+      </td>
+    </ng-container>
+
+    <tr mat-header-row *matHeaderRowDef="colonnes"></tr>
+    <tr mat-row *matRowDef="let row; columns: colonnes"></tr>
+  </table>
+</div>

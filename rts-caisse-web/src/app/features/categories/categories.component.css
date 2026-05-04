@@ -1,0 +1,12 @@
+.filters {
+  margin-bottom: 16px;
+}
+
+.code-cell {
+  font-family: monospace;
+  font-weight: 500;
+}
+
+.actions-col {
+  width: 60px;
+}

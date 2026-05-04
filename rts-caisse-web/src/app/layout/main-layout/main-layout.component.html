@@ -1,0 +1,61 @@
+<mat-sidenav-container class="layout-container">
+
+  <mat-sidenav mode="side" opened>
+
+    <div class="sidenav-header">
+      <div class="logo-badge">RTS</div>
+      <div class="brand">
+        <span class="brand-title">RTS Caisse</span>
+        <span class="brand-subtitle">Administration</span>
+      </div>
+    </div>
+
+    <mat-nav-list>
+      @for (item of visibleNavItems(); track item.route) {
+        <a
+          mat-list-item
+          class="nav-item"
+          [routerLink]="item.route"
+          routerLinkActive="active">
+          <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
+          <span matListItemTitle>{{ item.label }}</span>
+        </a>
+      }
+    </mat-nav-list>
+
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+
+    <mat-toolbar class="top-bar">
+      <span class="toolbar-title">Système de gestion de caisse</span>
+      <span class="toolbar-spacer"></span>
+      <div class="user-info">
+        <div class="user-text">
+          <span class="user-name">{{ currentUser()?.nomComplet }}</span>
+          <span class="user-role">{{ currentUser()?.role }}</span>
+        </div>
+        <div class="avatar" [matMenuTriggerFor]="userMenu">
+          {{ initiales() }}
+        </div>
+      </div>
+      <mat-menu #userMenu="matMenu">
+        <div class="menu-header">
+          <div class="menu-name">{{ currentUser()?.nomComplet }}</div>
+          <div class="menu-matricule">{{ currentUser()?.matricule }}</div>
+        </div>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Se déconnecter</span>
+        </button>
+      </mat-menu>
+    </mat-toolbar>
+
+    <div class="content-area">
+      <router-outlet />
+    </div>
+
+  </mat-sidenav-content>
+
+</mat-sidenav-container>
