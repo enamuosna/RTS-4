@@ -31,7 +31,7 @@ services:
     networks:
       - rts-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rts_user} -d ${POSTGRES_DB:-rts_caisse_db}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rts_caisse_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,6 +42,8 @@ services:
       # Le code source du backend est dans le dossier voisin
       context: ../rts-caisse-backend
       dockerfile: ../rts-caisse-docker/backend/Dockerfile
+      ports:
+        - "${POSTGRES_HOST_PORT:-5432}:5432"
     image: ${DOCKER_REGISTRY:-vnsu}/rts-caisse-backend:${APP_VERSION:-latest}
     container_name: rts-caisse-backend
     restart: unless-stopped
@@ -59,7 +61,7 @@ services:
     networks:
       - rts-internal
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/actuator/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9090/actuator/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
