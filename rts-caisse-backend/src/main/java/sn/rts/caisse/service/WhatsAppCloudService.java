@@ -1,0 +1,230 @@
+package sn.rts.caisse.service;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
+import sn.rts.caisse.config.WhatsAppProperties;
+import sn.rts.caisse.exception.BusinessException;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Encapsule les appels REST à l'API <b>WhatsApp Business Cloud</b> de Meta
+ * pour l'envoi de reçus PDF.
+ *
+ * <h2>Workflow d'envoi d'un document</h2>
+ * <ol>
+ *   <li><b>Upload du PDF</b> via {@code POST /v18.0/{phone_number_id}/media}
+ *       (multipart) → récupération d'un {@code media_id} valable 30 jours.</li>
+ *   <li><b>Envoi du message</b> via {@code POST /v18.0/{phone_number_id}/messages}
+ *       (JSON) avec le {@code media_id} et la légende → Meta livre le PDF
+ *       sur le WhatsApp du destinataire.</li>
+ * </ol>
+ *
+ * <h2>Quotas Meta</h2>
+ * <ul>
+ *   <li>Conversations gratuites entamées par RTS : <b>1 000 / mois</b>
+ *       (au-delà : facturé selon tarif Meta).</li>
+ *   <li>Réponses dans une fenêtre de 24h après un message du client : illimitées gratuites.</li>
+ * </ul>
+ *
+ * <p><b>Note importante :</b> pour envoyer un message à un client qui n'a
+ * jamais écrit à RTS sur WhatsApp, Meta exige un <i>template</i> approuvé.
+ * Le code ci-dessous envoie un message libre type <i>document</i> qui
+ * fonctionne tant que le client est dans la fenêtre de 24h. Si l'envoi
+ * échoue avec une erreur Meta type "outside 24h window", il faudra créer
+ * un template type {@code RECU_PAIEMENT} dans le dashboard Meta et adapter
+ * ce service pour l'utiliser.</p>
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class WhatsAppCloudService {
+
+    private final WhatsAppProperties props;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    // ==================================================================
+    //  API publique
+    // ==================================================================
+
+    /**
+     * Envoie un document PDF par WhatsApp au numéro indiqué.
+     *
+     * @param numeroDestinataire numéro déjà normalisé (chiffres uniquement,
+     *                           indicatif pays inclus, sans le {@code +})
+     * @param pdfBytes           contenu binaire du PDF
+     * @param nomFichierAffiche  nom de fichier qui apparaîtra côté client
+     * @param legende            légende textuelle du document
+     * @return {@code wamid} retourné par Meta
+     * @throws BusinessException si l'envoi a échoué
+     */
+    public String envoyerDocument(String numeroDestinataire,
+                                  byte[] pdfBytes,
+                                  String nomFichierAffiche,
+                                  String legende) {
+
+        if (!props.isEnabled()) {
+            throw new BusinessException(
+                    "L'intégration WhatsApp Cloud API est désactivée "
+                            + "(rts.whatsapp.enabled=false).");
+        }
+        if (props.getPhoneNumberId() == null || props.getPhoneNumberId().isBlank()
+                || props.getAccessToken() == null || props.getAccessToken().isBlank()) {
+            throw new BusinessException(
+                    "Configuration WhatsApp incomplète : phone-number-id "
+                            + "ou access-token manquant.");
+        }
+
+        // Étape 1 : upload du média → récupération d'un media_id
+        String mediaId = uploaderMedia(pdfBytes, nomFichierAffiche);
+        log.info("PDF uploadé sur WhatsApp Cloud, media_id = {}", mediaId);
+
+        // Étape 2 : envoi du message document
+        String messageId = envoyerMessageDocument(numeroDestinataire, mediaId,
+                nomFichierAffiche, legende);
+        log.info("Message WhatsApp envoyé à {} : wamid = {}",
+                numeroDestinataire, messageId);
+
+        return messageId;
+    }
+
+    // ==================================================================
+    //  Étape 1 — upload du média (multipart/form-data)
+    // ==================================================================
+
+    private String uploaderMedia(byte[] pdfBytes, String filename) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(props.getAccessToken());
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+        // ByteArrayResource avec un nom de fichier explicite (Spring exige
+        // getFilename() non-null pour la sérialisation multipart).
+        ByteArrayResource pdfResource = new ByteArrayResource(pdfBytes) {
+            @Override public String getFilename() { return filename; }
+        };
+
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("messaging_product", "whatsapp");
+        body.add("type", "application/pdf");
+        body.add("file", pdfResource);
+
+        HttpEntity<MultiValueMap<String, Object>> request = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<MediaUploadResponse> response = restTemplate.exchange(
+                    props.getMediaUploadUrl(),
+                    HttpMethod.POST,
+                    request,
+                    MediaUploadResponse.class);
+
+            if (response.getBody() == null || response.getBody().id() == null) {
+                throw new BusinessException(
+                        "Réponse Meta inattendue lors de l'upload du PDF "
+                                + "(pas de media_id).");
+            }
+            return response.getBody().id();
+
+        } catch (HttpClientErrorException e) {
+            log.error("Erreur Meta upload média : {} - {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(
+                    "L'upload du PDF sur WhatsApp a échoué : "
+                            + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            log.error("Erreur réseau upload média : {}", e.getMessage());
+            throw new BusinessException(
+                    "Impossible de joindre l'API WhatsApp Cloud : " + e.getMessage());
+        }
+    }
+
+    // ==================================================================
+    //  Étape 2 — envoi du message document (JSON)
+    // ==================================================================
+
+    private String envoyerMessageDocument(String numero, String mediaId,
+                                          String filename, String legende) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(props.getAccessToken());
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> document = new LinkedHashMap<>();
+        document.put("id", mediaId);
+        document.put("filename", filename);
+        if (legende != null && !legende.isBlank()) {
+            document.put("caption", legende);
+        }
+
+        Map<String, Object> body = Map.of(
+                "messaging_product", "whatsapp",
+                "recipient_type", "individual",
+                "to", numero,
+                "type", "document",
+                "document", document
+        );
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<MessageSendResponse> response = restTemplate.exchange(
+                    props.getMessagesUrl(),
+                    HttpMethod.POST,
+                    request,
+                    MessageSendResponse.class);
+
+            MessageSendResponse responseBody = response.getBody();
+            if (responseBody == null || responseBody.messages() == null
+                    || responseBody.messages().isEmpty()) {
+                throw new BusinessException(
+                        "Réponse Meta inattendue lors de l'envoi du message.");
+            }
+            return responseBody.messages().get(0).id();
+
+        } catch (HttpClientErrorException e) {
+            log.error("Erreur Meta envoi message : {} - {}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            throw new BusinessException(
+                    "L'envoi WhatsApp a échoué (" + e.getStatusCode() + ") : "
+                            + e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            log.error("Erreur réseau envoi message : {}", e.getMessage());
+            throw new BusinessException(
+                    "Impossible de joindre l'API WhatsApp Cloud : " + e.getMessage());
+        }
+    }
+
+    // ==================================================================
+    //  Records de désérialisation des réponses Meta
+    // ==================================================================
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record MediaUploadResponse(@JsonProperty("id") String id) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record MessageSendResponse(
+            @JsonProperty("messaging_product") String messagingProduct,
+            @JsonProperty("contacts") List<Contact> contacts,
+            @JsonProperty("messages") List<MessageRef> messages
+    ) {
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        record Contact(String input, @JsonProperty("wa_id") String waId) {}
+
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        record MessageRef(@JsonProperty("id") String id) {}
+    }
+}

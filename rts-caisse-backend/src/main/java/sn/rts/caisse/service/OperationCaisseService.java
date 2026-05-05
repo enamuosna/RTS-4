@@ -15,6 +15,10 @@ import sn.rts.caisse.repository.OperationCaisseRepository;
 import sn.rts.caisse.repository.UtilisateurRepository;
 import sn.rts.caisse.util.NumeroRecuGenerator;
 
+import sn.rts.caisse.dto.EnvoiWhatsAppResponse;
+import java.time.format.DateTimeFormatter;
+
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -42,6 +46,8 @@ public class OperationCaisseService {
     private final CategorieOperationService categorieService;
     private final ClientService clientService;
     private final NumeroRecuGenerator numeroRecuGenerator;
+    private final RecuPdfService recuPdfService;
+    private final WhatsAppCloudService whatsAppCloudService;
 
     // ------------------------------------------------------------------
     //  Enregistrement
@@ -195,4 +201,100 @@ public class OperationCaisseService {
                 ? soldeCourant.add(montant)
                 : soldeCourant.subtract(montant);
     }
+    private static final DateTimeFormatter FMT_DATE_RECU =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+
+    /**
+     * Envoie le reçu PDF d'une opération par WhatsApp via l'API Cloud Meta.
+     *
+     * Workflow :
+     * 1) Récupère l'opération en base (404 si introuvable)
+     * 2) Génère le PDF via RecuPdfService existant
+     * 3) Normalise le numéro destinataire (ajout indicatif 221 si absent)
+     * 4) Délègue l'envoi à WhatsAppCloudService qui appelle Meta
+     *
+     * @param operationId identifiant de l'opération de caisse
+     * @param telephone   numéro WhatsApp brut saisi par le caissier
+     * @return réponse contenant le wamid ou la raison de l'échec
+     */
+    @Transactional(readOnly = true)
+    public EnvoiWhatsAppResponse envoyerWhatsApp(Long operationId, String telephone) {
+
+        // 1) Vérifie l'existence de l'opération
+        OperationCaisse operation = operationRepository.findById(operationId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Opération introuvable : id=" + operationId));
+
+        // 2) Normalisation du téléphone
+        String numeroNorm = normaliserTelephoneWhatsApp(telephone);
+        if (numeroNorm == null) {
+            return EnvoiWhatsAppResponse.echec(telephone,
+                    "Numéro invalide. Format attendu : 77 123 45 67 ou +221 77 123 45 67.");
+        }
+
+        // 3) Génération du PDF (réutilise le service existant)
+        byte[] pdfBytes;
+        try {
+            pdfBytes = recuPdfService.genererRecu(operationId);
+        } catch (Exception e) {
+            log.error("Échec génération PDF pour opération {} : {}",
+                    operationId, e.getMessage());
+            return EnvoiWhatsAppResponse.echec(numeroNorm,
+                    "Impossible de générer le PDF du reçu : " + e.getMessage());
+        }
+
+        // 4) Construction de la légende et du nom de fichier
+        String dateStr = operation.getDateOperation() != null
+                ? operation.getDateOperation().format(FMT_DATE_RECU)
+                : "";
+        String legende = "Reçu RTS N° " + operation.getNumeroRecu()
+                + (dateStr.isEmpty() ? "" : " du " + dateStr);
+        String filename = "recu-" + operation.getNumeroRecu() + ".pdf";
+
+        // 5) Appel à l'API WhatsApp Cloud Meta
+        try {
+            String wamid = whatsAppCloudService.envoyerDocument(
+                    numeroNorm, pdfBytes, filename, legende);
+            log.info("Reçu n° {} envoyé sur WhatsApp à {} (wamid={})",
+                    operation.getNumeroRecu(), numeroNorm, wamid);
+            return EnvoiWhatsAppResponse.succes(wamid, numeroNorm);
+
+        } catch (BusinessException e) {
+            return EnvoiWhatsAppResponse.echec(numeroNorm, e.getMessage());
+        }
+    }
+
+
+    /**
+     * Normalise un numéro saisi par l'humain au format requis par Meta :
+     * chiffres seulement, indicatif pays inclus, sans le +.
+     *
+     * Exemples :
+     *   "+221 77 123 45 67"  -> "221771234567"
+     *   "77 123 45 67"       -> "221771234567"
+     *   "00221 77 123 45 67" -> "221771234567"
+     *
+     * Retourne null si le numéro est invalide.
+     */
+    private static String normaliserTelephoneWhatsApp(String raw) {
+        if (raw == null) return null;
+        String digits = raw.replaceAll("\\D", "");
+        if (digits.isEmpty()) return null;
+
+        if (digits.startsWith("00")) {
+            digits = digits.substring(2);
+        }
+        if (digits.startsWith("0")) {
+            digits = "221" + digits.substring(1);
+        }
+        if (digits.length() == 9 && (digits.startsWith("7") || digits.startsWith("3"))) {
+            digits = "221" + digits;
+        }
+        if (digits.length() < 10 || digits.length() > 15) {
+            return null;
+        }
+        return digits;
+    }
+
 }

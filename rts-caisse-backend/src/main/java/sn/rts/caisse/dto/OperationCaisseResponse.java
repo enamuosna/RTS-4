@@ -7,6 +7,15 @@ import sn.rts.caisse.model.TypeOperation;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * Réponse renvoyée par l'API après enregistrement / consultation
+ * d'une opération de caisse.
+ *
+ * <p><b>Évolution :</b> ajout des champs {@code clientTelephone} et
+ * {@code clientAdresse} pour permettre au client lourd JavaFX d'imprimer
+ * un reçu enrichi avec les coordonnées complètes du client et de
+ * l'envoyer directement par WhatsApp.</p>
+ */
 public record OperationCaisseResponse(
         Long id,
         String numeroRecu,
@@ -24,6 +33,8 @@ public record OperationCaisseResponse(
         String categorieLibelle,
         Long clientId,
         String clientRaisonSociale,
+        String clientTelephone,
+        String clientAdresse,
         boolean annulee,
         String motifAnnulation
 ) {
@@ -45,6 +56,8 @@ public record OperationCaisseResponse(
                 o.getCategorie().getLibelle(),
                 o.getClient() != null ? o.getClient().getId() : null,
                 o.getClient() != null ? o.getClient().getRaisonSociale() : null,
+                o.getClient() != null ? o.getClient().getTelephone() : null,
+                o.getClient() != null ? o.getClient().getAdresse() : null,
                 o.isAnnulee(),
                 o.getMotifAnnulation()
         );

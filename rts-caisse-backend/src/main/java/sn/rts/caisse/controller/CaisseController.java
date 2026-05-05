@@ -8,6 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import sn.rts.caisse.dto.CaisseDTO;
 import sn.rts.caisse.service.CaisseService;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+
 
 import java.util.List;
 
@@ -20,10 +23,30 @@ public class CaisseController {
     private final CaisseService service;
 
     @GetMapping
-    @Operation(summary = "Lister toutes les caisses")
-    public ResponseEntity<List<CaisseDTO>> lister() {
+    @Operation(
+            summary = "Lister les caisses (filtrées selon le rôle)",
+            description = "ADMIN et SUPERVISEUR voient toutes les caisses. "
+                    + "Un CAISSIER ne voit que la (les) caisse(s) qui lui sont affectées."
+    )
+    public ResponseEntity<List<CaisseDTO>> lister(Authentication authentication) {
+
+        boolean estCaissier = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role -> role.equals("ROLE_CAISSIER")
+                        || role.equals("CAISSIER"));
+
+        if (estCaissier) {
+            // Filtrage : ne retourne que la caisse affectée au caissier connecté.
+            // Le login est récupéré depuis le contexte de sécurité, pas depuis
+            // un paramètre client — impossible à falsifier.
+            return ResponseEntity.ok(
+                    service.listerPourCaissier(authentication.getName()));
+        }
+
+        // ADMIN / SUPERVISEUR / autre rôle privilégié : vue complète.
         return ResponseEntity.ok(service.lister());
     }
+
 
     @GetMapping("/{id}")
     public ResponseEntity<CaisseDTO> obtenir(@PathVariable Long id) {

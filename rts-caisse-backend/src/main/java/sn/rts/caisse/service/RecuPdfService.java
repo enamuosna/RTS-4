@@ -90,13 +90,22 @@ public class RecuPdfService {
             document.add(bandeauNumero(op));
             saut(document, 6);
 
-            // Corps : tableau clé / valeur
+            // Corps : tableau clé / valeur (caisse, agent, catégorie...)
             document.add(tableauDetails(op));
-            saut(document, 8);
+            saut(document, 6);
+
+            // Bloc CLIENT (si renseigné) — raison sociale, téléphone, adresse
+            PdfPTable blocClient = tableauClient(op);
+            if (blocClient != null) {
+                ecrireTitreSection(document, "CLIENT");
+                saut(document, 2);
+                document.add(blocClient);
+                saut(document, 8);
+            }
 
             // Bloc montant en évidence
             document.add(blocMontant(op));
-            saut(document, 10);
+
 
             // Motif
             ecrireMotif(document, op);
@@ -181,15 +190,57 @@ public class RecuPdfService {
         ajouterLigne(table, "Catégorie", op.getCategorie().getLibelle());
         ajouterLigne(table, "Mode",      op.getModePaiement().name().replace('_', ' '));
 
-        if (op.getClient() != null) {
-            ajouterLigne(table, "Client", op.getClient().getRaisonSociale());
-        }
         if (op.getReference() != null && !op.getReference().isBlank()) {
             ajouterLigne(table, "Référence", op.getReference());
         }
-
         return table;
     }
+    /**
+     * Bloc CLIENT séparé : raison sociale, téléphone, adresse.
+     * Affiché uniquement si au moins un champ est renseigné.
+     */
+    private PdfPTable tableauClient(OperationCaisse op) {
+        if (op.getClient() == null) return null;
+
+        String raison    = op.getClient().getRaisonSociale();
+        String telephone = op.getClient().getTelephone();
+        String adresse   = op.getClient().getAdresse();
+
+        boolean aQuelqueChose =
+                (raison    != null && !raison.isBlank())
+                        || (telephone != null && !telephone.isBlank())
+                        || (adresse   != null && !adresse.isBlank());
+
+        if (!aQuelqueChose) return null;
+
+        PdfPTable table = new PdfPTable(new float[]{35, 65});
+        table.setWidthPercentage(100);
+
+        if (raison != null && !raison.isBlank()) {
+            ajouterLigne(table, "M.", raison);
+        }
+        if (telephone != null && !telephone.isBlank()) {
+            ajouterLigne(table, "Téléphone", telephone);
+        }
+        if (adresse != null && !adresse.isBlank()) {
+            ajouterLigne(table, "Adresse", adresse);
+        }
+        return table;
+    }
+
+
+    /**
+     * Petit titre de section (ex. "CLIENT") en gris, utilisé au-dessus
+     * du bloc client pour le distinguer des autres infos.
+     */
+    private void ecrireTitreSection(Document document, String titre) throws Exception {
+        Paragraph p = new Paragraph(titre, font(7, Font.BOLD, RTS_GRAY_500));
+        p.setAlignment(Element.ALIGN_LEFT);
+        document.add(p);
+    }
+
+
+
 
     private void ajouterLigne(PdfPTable table, String label, String valeur) {
         PdfPCell cLabel = new PdfPCell(new Paragraph(label.toUpperCase() + " :",

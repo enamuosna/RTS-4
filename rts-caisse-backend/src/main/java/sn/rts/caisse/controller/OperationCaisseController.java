@@ -13,6 +13,10 @@ import sn.rts.caisse.dto.OperationCaisseRequest;
 import sn.rts.caisse.dto.OperationCaisseResponse;
 import sn.rts.caisse.service.OperationCaisseService;
 
+import jakarta.validation.Valid;
+import sn.rts.caisse.dto.EnvoiWhatsAppRequest;
+import sn.rts.caisse.dto.EnvoiWhatsAppResponse;
+
 import java.util.List;
 
 @RestController
@@ -58,4 +62,19 @@ public class OperationCaisseController {
     public ResponseEntity<List<OperationCaisseResponse>> historiqueJour(@PathVariable Long caisseId) {
         return ResponseEntity.ok(service.historiqueDuJour(caisseId));
     }
+    @PostMapping("/{id}/whatsapp")
+    @Operation(
+            summary = "Envoie le reçu PDF d'une opération par WhatsApp",
+            description = "Le PDF est généré côté serveur, uploadé chez Meta, puis envoyé "
+                    + "via l'API WhatsApp Business Cloud. Aucune ouverture de WhatsApp "
+                    + "Web ou Desktop côté caissier."
+    )
+    public ResponseEntity<EnvoiWhatsAppResponse> envoyerWhatsApp(
+            @PathVariable Long id,
+            @Valid @RequestBody EnvoiWhatsAppRequest request) {
+
+        EnvoiWhatsAppResponse reponse = service.envoyerWhatsApp(id, request.telephone());
+        return ResponseEntity.ok(reponse);
+    }
+
 }
