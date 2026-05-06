@@ -1,5 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,6 +15,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+
 import { Role } from '../../core/models/models';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -56,13 +63,14 @@ export class MainLayoutComponent {
   });
 
   private readonly navItems = signal<NavItem[]>([
-    { label: 'Tableau de bord', icon: 'dashboard',      route: '/dashboard',    roles: ['ADMIN', 'SUPERVISEUR'] },
-    { label: 'Caisses',         icon: 'point_of_sale',  route: '/caisses',      roles: ['ADMIN', 'SUPERVISEUR', 'CAISSIER'] },
-    { label: 'Opérations',      icon: 'receipt_long',   route: '/operations',   roles: ['ADMIN', 'SUPERVISEUR', 'CAISSIER'] },
-    { label: 'Journaux',        icon: 'event_note',     route: '/journaux',     roles: ['ADMIN', 'SUPERVISEUR'] },
-    { label: 'Clients',         icon: 'business',       route: '/clients',      roles: ['ADMIN', 'SUPERVISEUR', 'CAISSIER'] },
-    { label: 'Catégories',      icon: 'category',       route: '/categories',   roles: ['ADMIN'] },
-    { label: 'Utilisateurs',    icon: 'people',         route: '/utilisateurs', roles: ['ADMIN'] }
+    { label: 'Tableau de bord',  icon: 'dashboard',      route: '/dashboard',    roles: ['ADMIN', 'SUPERVISEUR'] },
+    { label: 'Caisses',          icon: 'point_of_sale',  route: '/caisses',      roles: ['ADMIN', 'SUPERVISEUR', 'CAISSIER'] },
+    { label: 'Opérations',       icon: 'receipt_long',   route: '/operations',   roles: ['ADMIN', 'SUPERVISEUR', 'CAISSIER'] },
+    { label: 'Journaux',         icon: 'event_note',     route: '/journaux',     roles: ['ADMIN', 'SUPERVISEUR'] },
+    { label: 'Clients',          icon: 'business',       route: '/clients',      roles: ['ADMIN', 'SUPERVISEUR', 'CAISSIER'] },
+    { label: 'Catégories',       icon: 'category',       route: '/categories',   roles: ['ADMIN'] },
+    { label: 'Utilisateurs',     icon: 'people',         route: '/utilisateurs', roles: ['ADMIN'] },
+    { label: 'Journal d\'audit', icon: 'fact_check',     route: '/audit',        roles: ['ADMIN'] }
   ]);
 
   readonly visibleNavItems = computed(() =>

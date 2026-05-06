@@ -1,0 +1,277 @@
+/* =====================================================================
+   Styles — page d'audit RTS Caisse
+   Palette : RTS bleu (#0A4D8C) + doré (#E8A317)
+===================================================================== */
+
+.page-container {
+  padding: 24px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #0A4D8C;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* =====================================================================
+   Barre de filtres
+===================================================================== */
+
+.filter-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px 14px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.f-action  { grid-column: span 2; min-width: 240px; }
+.f-statut  { grid-column: span 2; align-self: center; height: 56px; }
+
+.toggle-icon { font-size: 18px; height: 18px; width: 18px; vertical-align: middle; }
+.toggle-icon.ok { color: #16a34a; }
+.toggle-icon.ko { color: #dc2626; }
+
+.filter-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid #f3f4f6;
+  padding-top: 12px;
+}
+
+.filter-actions button mat-icon {
+  margin-right: 4px;
+}
+
+/* =====================================================================
+   Tableau
+===================================================================== */
+
+.table-wrapper {
+  position: relative;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.audit-table {
+  width: 100%;
+}
+
+.audit-table th {
+  background: #f8fafc;
+  color: #0A4D8C;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.audit-table td {
+  font-size: 13px;
+  padding: 10px 14px;
+  vertical-align: middle;
+}
+
+.audit-table tr.row-echec {
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.audit-table tr.row-echec:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.audit-table tr:hover {
+  background: #f9fafb;
+}
+
+.col-actions { width: 64px; text-align: center; }
+
+/* ----- Cellule date ----- */
+
+.date-cell {
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.date-cell .heure {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* ----- Cellule utilisateur ----- */
+
+.user-cell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.user-cell .meta {
+  font-size: 11px;
+  color: #6b7280;
+  font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.role-badge {
+  display: inline-block;
+  margin-top: 3px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  width: max-content;
+}
+.role-admin       { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.role-superviseur { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.role-caissier    { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+
+/* ----- Cellule entité ----- */
+
+.entity-cell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 280px;
+}
+.entity-type {
+  font-weight: 600;
+  color: #374151;
+}
+.entity-id {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+  color: #6b7280;
+}
+.entity-label {
+  font-size: 12px;
+  color: #4b5563;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ----- IP ----- */
+
+.ip-cell {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #4b5563;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* ----- Statut ----- */
+
+.statut-ok { color: #16a34a; }
+.statut-ko { color: #dc2626; }
+
+/* ----- Chip d'action ----- */
+
+.chip-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.chip-action .chip-icon {
+  font-size: 16px;
+  height: 16px;
+  width: 16px;
+}
+
+.chip-auth      { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.chip-caisse    { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.chip-operation { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+.chip-export    { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
+.chip-admin     { background: #fce7f3; color: #9d174d; border-color: #fbcfe8; }
+.chip-default   { background: #f3f4f6; color: #374151; border-color: #e5e7eb; }
+.chip-echec     { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+
+/* ----- Texte muet ----- */
+
+.text-muted {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* ----- "Aucune donnée" ----- */
+
+.no-data {
+  text-align: center;
+  padding: 48px 16px !important;
+  color: #6b7280;
+}
+.no-data mat-icon {
+  font-size: 32px;
+  height: 32px;
+  width: 32px;
+  display: block;
+  margin: 0 auto 8px;
+  color: #d1d5db;
+}
+
+/* ----- Overlay de chargement ----- */
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* =====================================================================
+   Responsive
+===================================================================== */
+
+@media (max-width: 768px) {
+  .page-container { padding: 12px; }
+  .filter-row { grid-template-columns: 1fr; }
+  .f-action, .f-statut { grid-column: span 1; }
+  .audit-table th, .audit-table td { padding: 8px; font-size: 12px; }
+}

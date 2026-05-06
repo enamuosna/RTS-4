@@ -8,6 +8,13 @@ export const routes: Routes = [
       import('./features/auth/login/login.component').then((m) => m.LoginComponent)
   },
   {
+    path: 'admin/audit',
+    loadComponent: () =>
+        import('./features/audit/audit-list.component')
+            .then(m => m.AuditListComponent),
+    canActivate: [roleGuard(['ADMIN'])]
+  },
+  {
     path: '',
     loadComponent: () =>
       import('./layout/main-layout/main-layout.component').then((m) => m.MainLayoutComponent),
@@ -56,6 +63,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/journaux/journaux.component').then((m) => m.JournauxComponent),
         canActivate: [roleGuard(['ADMIN', 'SUPERVISEUR'])]
+      },
+      {
+        path: 'audit',
+        loadComponent: () =>
+          import('./features/audit/audit-list.component').then((m) => m.AuditListComponent),
+        canActivate: [roleGuard(['ADMIN'])]
       },
       // Si un guard refuse un accès, on renvoie sur /caisses (page sûre pour tous)
       // plutôt que sur /login qui ferait croire à tort à une session expirée.

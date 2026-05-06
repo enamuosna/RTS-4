@@ -26,11 +26,17 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Configuration centrale de la sécurité :
- *   - désactivation de CSRF (API stateless)
- *   - session stateless, authentification par JWT
- *   - règles d'accès par URL et par rôle
+ * Configuration Spring Security :
+ *   - JWT stateless (aucune session côté serveur)
+ *   - Endpoints publics : /api/auth/**, swagger, actuator/health
+ *   - Restrictions de rôle au niveau URL (ADMIN, SUPERVISEUR, CAISSIER)
  *   - CORS pour Angular et JavaFX
+ *
+ * <p><b>Règle d'or Spring Security 6 :</b> tous les
+ * {@code requestMatchers(...)} spécifiques DOIVENT être déclarés
+ * <b>avant</b> {@code .anyRequest().authenticated()}. Sinon Spring
+ * lève {@code IllegalStateException: Can't configure mvcMatchers after
+ * anyRequest}.</p>
  */
 @Configuration
 @EnableMethodSecurity(prePostEnabled = true)
@@ -69,12 +75,18 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
 
+                        // Audit : consultation réservée aux ADMIN
+                        // (le @PreAuthorize("hasRole('ADMIN')") sur AuditLogController
+                        //  fait déjà le travail, mais on double ici pour défense en profondeur)
+                        .requestMatchers("/api/audit/**").hasRole("ADMIN")
+
                         // Reporting / supervision
                         .requestMatchers("/api/reporting/**").hasAnyRole("ADMIN", "SUPERVISEUR")
                         .requestMatchers(HttpMethod.POST, "/api/journaux/*/valider")
                             .hasAnyRole("ADMIN", "SUPERVISEUR")
 
                         // Tout le reste nécessite une authentification
+                        // ⚠ DOIT TOUJOURS RESTER LA DERNIÈRE LIGNE de authorizeHttpRequests
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
@@ -105,33 +117,32 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-    CorsConfiguration configuration = new CorsConfiguration();
+        CorsConfiguration configuration = new CorsConfiguration();
 
-    // IMPORTANT : on utilise setAllowedOriginPatterns (pas setAllowedOrigins)
-    // pour pouvoir matcher des plages d'IP du réseau local avec des wildcards.
-    // Exemples valides dans CORS_ALLOWED_ORIGINS :
-    //   http://192.168.*.*:8080
-    //   http://10.0.*.*:8080
-    //   http://*.rts.local:8080
-    //   http://localhost:8080
-    configuration.setAllowedOriginPatterns(
-            Arrays.asList(allowedOrigins.split(",")));
+        // IMPORTANT : on utilise setAllowedOriginPatterns (pas setAllowedOrigins)
+        // pour pouvoir matcher des plages d'IP du réseau local avec des wildcards.
+        // Exemples valides dans CORS_ALLOWED_ORIGINS :
+        //   http://192.168.*.*:8080
+        //   http://10.0.*.*:8080
+        //   http://*.rts.local:8080
+        //   http://localhost:8080
+        configuration.setAllowedOriginPatterns(
+                Arrays.asList(allowedOrigins.split(",")));
 
-    configuration.setAllowedMethods(
-            List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-    configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
 
-    // Content-Disposition indispensable pour que le frontend puisse lire
-    // le nom du fichier .xlsx lors du téléchargement.
-    configuration.setExposedHeaders(
-            List.of("Authorization", "Content-Disposition"));
+        // Content-Disposition indispensable pour que le frontend puisse lire
+        // le nom du fichier .xlsx lors du téléchargement.
+        configuration.setExposedHeaders(
+                List.of("Authorization", "Content-Disposition"));
 
-    configuration.setAllowCredentials(true);
-    configuration.setMaxAge(3600L);
+        configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
-    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", configuration);
-    return source;
-}
-
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
+    }
 }

@@ -13,11 +13,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
+import sn.rts.caisse.audit.AuditAction;
+import sn.rts.caisse.audit.AuditService;
 import sn.rts.caisse.service.JournalExcelService;
 
 import java.util.List;
 
+/**
+ * Endpoints REST pour l'export Excel d'un journal de caisse.
+ *
+ * <p>Chaque téléchargement (succès comme échec) est tracé dans la table
+ * {@code audit_logs} via {@link AuditService} avec l'action
+ * {@link AuditAction#EXPORTER_JOURNAL_EXCEL}, en incluant la taille du
+ * fichier généré et le nom du fichier renvoyé au client.</p>
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/journaux")
@@ -29,6 +38,7 @@ public class JournalExcelController {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private final JournalExcelService journalExcelService;
+    private final AuditService auditService;
 
     /**
      * Export Excel du journal.
@@ -43,8 +53,23 @@ public class JournalExcelController {
     public ResponseEntity<ByteArrayResource> exporterExcel(@PathVariable Long id) {
         log.info("Requête d'export Excel pour le journal {}", id);
 
-        byte[] xlsx = journalExcelService.exporterJournal(id);
-        String nomFichier = journalExcelService.nomFichier(id);
+        byte[] xlsx;
+        String nomFichier;
+        try {
+            xlsx = journalExcelService.exporterJournal(id);
+            nomFichier = journalExcelService.nomFichier(id);
+        } catch (RuntimeException e) {
+            // -------- AUDIT : échec --------
+            // Capture les ResourceNotFoundException, erreurs Apache POI,
+            // erreurs d'I/O… sans masquer l'exception (relancée à la fin).
+            auditService.logFailure(
+                    AuditAction.EXPORTER_JOURNAL_EXCEL,
+                    "JournalCaisse",
+                    id,
+                    null,
+                    e.getMessage());
+            throw e;
+        }
 
         HttpHeaders headers = new HttpHeaders();
         // IMPORTANT : PAS de StandardCharsets.UTF_8 ici !
@@ -62,6 +87,15 @@ public class JournalExcelController {
 
         log.info("Export Excel généré pour le journal {} ({} octets, fichier {})",
                 id, xlsx.length, nomFichier);
+
+        // -------- AUDIT : succès --------
+        auditService.logSuccess(
+                AuditAction.EXPORTER_JOURNAL_EXCEL,
+                "JournalCaisse",
+                id,
+                nomFichier,
+                "Fichier=" + nomFichier
+                        + " Taille=" + xlsx.length + " octets");
 
         return ResponseEntity.ok()
                 .headers(headers)

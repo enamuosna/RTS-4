@@ -2,6 +2,7 @@ package sn.rts.caisse.service;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -50,6 +51,14 @@ import java.util.Map;
  * échoue avec une erreur Meta type "outside 24h window", il faudra créer
  * un template type {@code RECU_PAIEMENT} dans le dashboard Meta et adapter
  * ce service pour l'utiliser.</p>
+ *
+ * <h2>Audit</h2>
+ * <p>Ce service ne s'audite pas lui-même : l'action {@code ENVOYER_WHATSAPP}
+ * est tracée par {@code OperationCaisseService.envoyerWhatsApp()} qui dispose
+ * du contexte métier (numéro de reçu, montant, opération…). Pour rester
+ * cohérent avec ce schéma, on s'assure ici que les messages d'erreur
+ * remontés à l'appelant sont concis et lisibles dans {@code audit_logs}
+ * (extraction structurée de l'erreur Meta plutôt qu'un dump JSON brut).</p>
  */
 @Slf4j
 @Service
@@ -58,6 +67,7 @@ public class WhatsAppCloudService {
 
     private final WhatsAppProperties props;
     private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ==================================================================
     //  API publique
@@ -72,7 +82,10 @@ public class WhatsAppCloudService {
      * @param nomFichierAffiche  nom de fichier qui apparaîtra côté client
      * @param legende            légende textuelle du document
      * @return {@code wamid} retourné par Meta
-     * @throws BusinessException si l'envoi a échoué
+     * @throws BusinessException si l'envoi a échoué (le message est court
+     *                           et lisible — il est destiné à finir dans
+     *                           {@code audit_logs} et à être affiché à
+     *                           l'utilisateur)
      */
     public String envoyerDocument(String numeroDestinataire,
                                   byte[] pdfBytes,
@@ -141,11 +154,12 @@ public class WhatsAppCloudService {
             return response.getBody().id();
 
         } catch (HttpClientErrorException e) {
-            log.error("Erreur Meta upload média : {} - {}",
-                    e.getStatusCode(), e.getResponseBodyAsString());
+            String metaMessage = extraireMessageErreurMeta(e);
+            log.error("Erreur Meta upload média : {} - {} (réponse complète : {})",
+                    e.getStatusCode(), metaMessage, e.getResponseBodyAsString());
             throw new BusinessException(
-                    "L'upload du PDF sur WhatsApp a échoué : "
-                            + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+                    "Échec upload PDF (" + e.getStatusCode().value() + ") : " + metaMessage);
+
         } catch (RestClientException e) {
             log.error("Erreur réseau upload média : {}", e.getMessage());
             throw new BusinessException(
@@ -196,16 +210,62 @@ public class WhatsAppCloudService {
             return responseBody.messages().get(0).id();
 
         } catch (HttpClientErrorException e) {
-            log.error("Erreur Meta envoi message : {} - {}",
-                    e.getStatusCode(), e.getResponseBodyAsString());
+            String metaMessage = extraireMessageErreurMeta(e);
+            log.error("Erreur Meta envoi message : {} - {} (réponse complète : {})",
+                    e.getStatusCode(), metaMessage, e.getResponseBodyAsString());
             throw new BusinessException(
-                    "L'envoi WhatsApp a échoué (" + e.getStatusCode() + ") : "
-                            + e.getResponseBodyAsString());
+                    "Échec envoi WhatsApp (" + e.getStatusCode().value() + ") : " + metaMessage);
+
         } catch (RestClientException e) {
             log.error("Erreur réseau envoi message : {}", e.getMessage());
             throw new BusinessException(
                     "Impossible de joindre l'API WhatsApp Cloud : " + e.getMessage());
         }
+    }
+
+    // ==================================================================
+    //  Helpers
+    // ==================================================================
+
+    /**
+     * Extrait le message d'erreur "humain" depuis le corps de la réponse
+     * d'erreur Meta, qui suit le format :
+     * <pre>
+     * {
+     *   "error": {
+     *     "message": "...",
+     *     "type": "OAuthException",
+     *     "code": 100,
+     *     "error_subcode": 33,
+     *     "fbtrace_id": "..."
+     *   }
+     * }
+     * </pre>
+     *
+     * <p>Si le parsing échoue (ex. réponse non-JSON), on tronque la chaîne
+     * brute à 200 caractères pour rester lisible dans les logs et l'audit.</p>
+     */
+    private String extraireMessageErreurMeta(HttpClientErrorException e) {
+        String body = e.getResponseBodyAsString();
+        if (body == null || body.isBlank()) {
+            return e.getStatusText();
+        }
+        try {
+            MetaErrorEnveloppe enveloppe = objectMapper.readValue(body, MetaErrorEnveloppe.class);
+            if (enveloppe != null && enveloppe.error() != null
+                    && enveloppe.error().message() != null
+                    && !enveloppe.error().message().isBlank()) {
+
+                Integer code = enveloppe.error().code();
+                return code != null
+                        ? enveloppe.error().message() + " (code Meta " + code + ")"
+                        : enveloppe.error().message();
+            }
+        } catch (Exception parseEx) {
+            log.debug("Impossible de parser la réponse d'erreur Meta : {}", parseEx.getMessage());
+        }
+        // Fallback : chaîne brute tronquée
+        return body.length() > 200 ? body.substring(0, 200) + "…" : body;
     }
 
     // ==================================================================
@@ -226,5 +286,18 @@ public class WhatsAppCloudService {
 
         @JsonIgnoreProperties(ignoreUnknown = true)
         record MessageRef(@JsonProperty("id") String id) {}
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    private record MetaErrorEnveloppe(@JsonProperty("error") MetaError error) {
+
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        record MetaError(
+                @JsonProperty("message")       String  message,
+                @JsonProperty("type")          String  type,
+                @JsonProperty("code")          Integer code,
+                @JsonProperty("error_subcode") Integer errorSubcode,
+                @JsonProperty("fbtrace_id")    String  fbtraceId
+        ) {}
     }
 }

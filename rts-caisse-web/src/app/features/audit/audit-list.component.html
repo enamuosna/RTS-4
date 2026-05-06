@@ -1,0 +1,231 @@
+<div class="page-container">
+  <div class="page-header">
+    <div>
+      <h1>Journal d'audit</h1>
+      <p class="subtitle">Traçabilité de toutes les actions sensibles du système</p>
+    </div>
+    <div class="header-actions">
+      <button mat-stroked-button (click)="rafraichir()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        Rafraîchir
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!--  Barre de filtres                                                -->
+  <!-- ============================================================== -->
+  <div class="filter-card">
+    <div class="filter-row">
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-action">
+        <mat-label>Action</mat-label>
+        <mat-select [(value)]="filtreAction">
+          <mat-option [value]="''">— Toutes —</mat-option>
+          @for (a of actionsList; track a.value) {
+            <mat-option [value]="a.value">{{ a.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-user">
+        <mat-label>ID utilisateur</mat-label>
+        <input matInput type="number" [(ngModel)]="filtreUserId" placeholder="ex. 12">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-entity">
+        <mat-label>Type d'entité</mat-label>
+        <mat-select [(value)]="filtreEntityType">
+          <mat-option [value]="''">— Toutes —</mat-option>
+          <mat-option value="OperationCaisse">OperationCaisse</mat-option>
+          <mat-option value="JournalCaisse">JournalCaisse</mat-option>
+          <mat-option value="Caisse">Caisse</mat-option>
+          <mat-option value="Utilisateur">Utilisateur</mat-option>
+          <mat-option value="Client">Client</mat-option>
+          <mat-option value="CategorieOperation">CategorieOperation</mat-option>
+          <mat-option value="AuditLog">AuditLog</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-entity-id">
+        <mat-label>ID entité</mat-label>
+        <input matInput type="number" [(ngModel)]="filtreEntityId" placeholder="ex. 42">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-date">
+        <mat-label>Du</mat-label>
+        <input matInput [matDatepicker]="dpFrom" [(ngModel)]="filtreDateFrom">
+        <mat-datepicker-toggle matIconSuffix [for]="dpFrom"></mat-datepicker-toggle>
+        <mat-datepicker #dpFrom></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="f-date">
+        <mat-label>Au</mat-label>
+        <input matInput [matDatepicker]="dpTo" [(ngModel)]="filtreDateTo">
+        <mat-datepicker-toggle matIconSuffix [for]="dpTo"></mat-datepicker-toggle>
+        <mat-datepicker #dpTo></mat-datepicker>
+      </mat-form-field>
+
+      <mat-button-toggle-group [(value)]="filtreSucces" class="f-statut" hideSingleSelectionIndicator>
+        <mat-button-toggle value="all">Tous</mat-button-toggle>
+        <mat-button-toggle value="success">
+          <mat-icon class="toggle-icon ok">check_circle</mat-icon> Succès
+        </mat-button-toggle>
+        <mat-button-toggle value="failure">
+          <mat-icon class="toggle-icon ko">cancel</mat-icon> Échecs
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+
+    <div class="filter-actions">
+      <button mat-flat-button color="primary" (click)="appliquerFiltres()">
+        <mat-icon>search</mat-icon>
+        Filtrer
+      </button>
+      <button mat-stroked-button (click)="reinitialiserFiltres()">
+        <mat-icon>clear</mat-icon>
+        Réinitialiser
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!--  Tableau                                                          -->
+  <!-- ============================================================== -->
+  <div class="table-wrapper">
+    @if (loading()) {
+      <div class="loading-overlay">
+        <mat-spinner diameter="36"></mat-spinner>
+      </div>
+    }
+
+    <table mat-table [dataSource]="logs()" class="audit-table">
+
+      <!-- Date -->
+      <ng-container matColumnDef="date">
+        <th mat-header-cell *matHeaderCellDef>Date & heure</th>
+        <td mat-cell *matCellDef="let log">
+          <span class="date-cell">
+            {{ log.createdAt | date: 'dd/MM/yyyy' }}
+            <span class="heure">{{ log.createdAt | date: 'HH:mm:ss' }}</span>
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Action -->
+      <ng-container matColumnDef="action">
+        <th mat-header-cell *matHeaderCellDef>Action</th>
+        <td mat-cell *matCellDef="let log">
+          <span class="chip-action" [ngClass]="classeAction(log)">
+            <mat-icon class="chip-icon">{{ iconeAction(log) }}</mat-icon>
+            {{ log.actionLibelle }}
+          </span>
+        </td>
+      </ng-container>
+
+      <!-- Utilisateur -->
+      <ng-container matColumnDef="utilisateur">
+        <th mat-header-cell *matHeaderCellDef>Utilisateur</th>
+        <td mat-cell *matCellDef="let log">
+          @if (log.userLogin) {
+            <div class="user-cell">
+              <strong>{{ log.userLogin }}</strong>
+              @if (log.userMatricule) {
+                <span class="meta">{{ log.userMatricule }}</span>
+              }
+              @if (log.userRole) {
+                <span class="role-badge role-{{ log.userRole.toLowerCase() }}">
+                  {{ log.userRole }}
+                </span>
+              }
+            </div>
+          } @else {
+            <span class="text-muted">— Anonyme —</span>
+          }
+        </td>
+      </ng-container>
+
+      <!-- Entité -->
+      <ng-container matColumnDef="entite">
+        <th mat-header-cell *matHeaderCellDef>Entité</th>
+        <td mat-cell *matCellDef="let log">
+          @if (log.entityType) {
+            <div class="entity-cell">
+              <span class="entity-type">{{ log.entityType }}</span>
+              @if (log.entityId) {
+                <span class="entity-id">#{{ log.entityId }}</span>
+              }
+              @if (log.entityLabel) {
+                <div class="entity-label" [matTooltip]="log.entityLabel">
+                  {{ log.entityLabel }}
+                </div>
+              }
+            </div>
+          } @else {
+            <span class="text-muted">—</span>
+          }
+        </td>
+      </ng-container>
+
+      <!-- IP -->
+      <ng-container matColumnDef="ip">
+        <th mat-header-cell *matHeaderCellDef>IP</th>
+        <td mat-cell *matCellDef="let log">
+          @if (log.ipAddress) {
+            <code class="ip-cell">{{ log.ipAddress }}</code>
+          } @else {
+            <span class="text-muted">—</span>
+          }
+        </td>
+      </ng-container>
+
+      <!-- Statut -->
+      <ng-container matColumnDef="statut">
+        <th mat-header-cell *matHeaderCellDef>Statut</th>
+        <td mat-cell *matCellDef="let log">
+          @if (log.success) {
+            <mat-icon class="statut-ok" matTooltip="Succès">check_circle</mat-icon>
+          } @else {
+            <mat-icon class="statut-ko" [matTooltip]="log.errorMessage ?? 'Échec'">
+              cancel
+            </mat-icon>
+          }
+        </td>
+      </ng-container>
+
+      <!-- Actions -->
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef class="col-actions"></th>
+        <td mat-cell *matCellDef="let log" class="col-actions">
+          <button mat-icon-button (click)="voirDetail(log)" matTooltip="Voir le détail">
+            <mat-icon>visibility</mat-icon>
+          </button>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="colonnes"></tr>
+      <tr mat-row *matRowDef="let row; columns: colonnes;"
+          [class.row-echec]="!row.success"></tr>
+
+      <tr class="mat-row" *matNoDataRow>
+        <td class="no-data" [attr.colspan]="colonnes.length">
+          @if (loading()) {
+            Chargement…
+          } @else {
+            <mat-icon>inbox</mat-icon>
+            Aucune entrée d'audit ne correspond à ces critères.
+          }
+        </td>
+      </tr>
+    </table>
+
+    <mat-paginator
+      [length]="total()"
+      [pageSize]="pageSize"
+      [pageIndex]="pageIndex"
+      [pageSizeOptions]="pageSizes"
+      (page)="changerPage($event)"
+      showFirstLastButtons>
+    </mat-paginator>
+  </div>
+</div>
