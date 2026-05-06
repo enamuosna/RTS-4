@@ -1,3 +1,8 @@
+// =====================================================================
+//  Fichier : src/app/core/services/admin.services.ts
+//  Version complète intégrant la méthode modifierLogin() dans UtilisateurService.
+//  Les autres services (Caisse, Categorie, Client) sont conservés tels quels.
+// =====================================================================
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
@@ -37,6 +42,20 @@ export class UtilisateurService {
     });
   }
 
+  /**
+   * Modifie le login d'un utilisateur (réservé super-admin côté backend).
+   * Backend : PATCH /api/utilisateurs/{id}/login?nouveau=xxx
+   */
+  modifierLogin(id: number, nouveau: string): Observable<Utilisateur> {
+    return this.http.patch<Utilisateur>(`${this.base}/${id}/login`, null, {
+      params: new HttpParams().set('nouveau', nouveau)
+    });
+  }
+
+  /**
+   * Change / réinitialise le mot de passe.
+   * Backend : PATCH /api/utilisateurs/{id}/mot-de-passe?nouveau=xxx
+   */
   changerMotDePasse(id: number, nouveau: string): Observable<void> {
     return this.http.patch<void>(`${this.base}/${id}/mot-de-passe`, null, {
       params: new HttpParams().set('nouveau', nouveau)
