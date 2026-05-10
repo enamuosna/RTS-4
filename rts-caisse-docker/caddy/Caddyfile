@@ -1,0 +1,119 @@
+# =============================================================
+#  RTS Caisse - Configuration Caddy
+# =============================================================
+#  Caddy obtient et renouvelle automatiquement le certificat
+#  Let's Encrypt pour {$SERVER_NAME}. Aucune action manuelle.
+#
+#  Variables substituees au demarrage par Caddy :
+#    {$SERVER_NAME}        -> rts-caisse.duckdns.org
+#    {$LETSENCRYPT_EMAIL}  -> ansoumane2camara@gmail.com
+# =============================================================
+
+# -------------------------------------------------------------
+# Bloc global : config par defaut pour tous les sites
+# -------------------------------------------------------------
+{
+	# Email pour Let's Encrypt (alertes d'expiration, renouvellements)
+	email {$LETSENCRYPT_EMAIL}
+
+	# Decommenter UNE FOIS pour tester en staging Let's Encrypt
+	# (ne consomme pas le quota de 5 certs/semaine).
+	# Recommenter et redemarrer pour avoir un vrai cert reconnu.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	# Logs au format console (lisible en dev) -> stderr
+	log {
+		output stderr
+		format console
+		level INFO
+	}
+
+	# Active HTTP/3 (transport QUIC) - bonus performance gratuite
+	servers {
+		protocols h1 h2 h3
+	}
+
+	# Cache des sessions TLS pour reduire les handshakes
+	# (par defaut Caddy gere bien, mais on peut affiner)
+}
+
+# =============================================================
+#  Site principal : rts-caisse.duckdns.org
+# =============================================================
+{$SERVER_NAME} {
+	# -------------------------------------------------------------
+	# Compression : Caddy choisit zstd > gzip selon le client
+	# -------------------------------------------------------------
+	encode zstd gzip
+
+	# -------------------------------------------------------------
+	# Headers de securite (HSTS pour 1 an + sous-domaines)
+	# -------------------------------------------------------------
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options    "nosniff"
+		X-Frame-Options           "SAMEORIGIN"
+		Referrer-Policy           "strict-origin-when-cross-origin"
+		# Masque la version de Caddy dans la reponse
+		-Server
+	}
+
+	# -------------------------------------------------------------
+	# Matcher API : tout ce qui doit aller au backend Spring Boot
+	# -------------------------------------------------------------
+	@api {
+		path /api/* /actuator /actuator/* /health /swagger-ui /swagger-ui/* /v3/api-docs /v3/api-docs/*
+	}
+
+	# -------------------------------------------------------------
+	# Route 1 : API -> backend:9090 (Spring Boot)
+	# -------------------------------------------------------------
+	handle @api {
+		reverse_proxy backend:9090 {
+			# Headers transmis au backend
+			header_up Host              {host}
+			header_up X-Real-IP         {remote_host}
+			header_up X-Forwarded-For   {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host  {host}
+
+			# Timeouts genereux pour upload/download de fichiers audio
+			transport http {
+				dial_timeout      10s
+				read_timeout      300s
+				write_timeout     300s
+				response_header_timeout 60s
+				keepalive         60s
+				keepalive_idle_conns 32
+			}
+
+			# Retourne du JSON quand le backend est down (au lieu de 502)
+			@error status 502 503 504
+			handle_response @error {
+				header Content-Type "application/json"
+				respond `{"status":"DOWN","message":"Service temporairement indisponible"}` 503
+			}
+		}
+	}
+
+	# -------------------------------------------------------------
+	# Route 2 (fallback) : tout le reste -> frontend Angular
+	# -------------------------------------------------------------
+	handle {
+		reverse_proxy frontend:80 {
+			header_up Host              {host}
+			header_up X-Real-IP         {remote_host}
+			header_up X-Forwarded-For   {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
+	# -------------------------------------------------------------
+	# Logs d'acces : exclure les health checks pour ne pas spammer
+	# -------------------------------------------------------------
+	log {
+		output stderr
+		format console
+		level WARN
+	}
+}

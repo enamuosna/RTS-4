@@ -1,0 +1,145 @@
+# =============================================================
+#  RTS Caisse - docker-compose PRODUCTION (Caddy + Let's Encrypt)
+# =============================================================
+#  Remplace l'ancien gateway nginx + certbot par UN SEUL container
+#  Caddy qui gere automatiquement :
+#    - Obtention du cert Let's Encrypt au demarrage
+#    - Renouvellement automatique en arriere-plan
+#    - Redirection HTTP 80 -> HTTPS 443
+#    - HTTP/2 et HTTP/3 (QUIC)
+#    - OCSP stapling
+#    - Compression gzip/zstd
+#    - HSTS et headers de securite
+#
+#  Variables OBLIGATOIRES (.env) :
+#    SERVER_NAME=rts-caisse.duckdns.org
+#    LETSENCRYPT_EMAIL=ansoumane2camara@gmail.com
+#    POSTGRES_PASSWORD=amc2622amc
+#    JWT_SECRET=...
+#
+#  Premier demarrage (apres avoir configure DuckDNS et port forwarding) :
+#    docker compose -f docker-compose.caddy.yml up -d
+#
+#  Aucun script de bootstrap n'est necessaire : Caddy se debrouille seul.
+# =============================================================
+
+name: rts-caisse
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: rts-caisse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-rts_caisse_db}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ERREUR - definir POSTGRES_PASSWORD dans .env}
+      TZ: Africa/Dakar
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rts-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-rts_caisse_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    image: ${DOCKER_REGISTRY:-vnsu}/rts-caisse-backend:${APP_VERSION:-latest}
+    container_name: rts-caisse-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_DB:       ${POSTGRES_DB:-rts_caisse_db}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET:        ${JWT_SECRET:?ERREUR - definir JWT_SECRET dans .env}
+      CORS_ALLOWED_ORIGINS: https://${SERVER_NAME}
+      TZ: Africa/Dakar
+    networks:
+      - rts-internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  frontend:
+    image: ${DOCKER_REGISTRY:-vnsu}/rts-caisse-frontend:${APP_VERSION:-latest}
+    container_name: rts-caisse-frontend
+    restart: unless-stopped
+    environment:
+      TZ: Africa/Dakar
+    networks:
+      - rts-internal
+
+  # ==========================================================
+  #  CADDY - reverse proxy + SSL automatique
+  # ==========================================================
+  #  Une seule config (Caddyfile), une seule image, AUCUN script.
+  #  Caddy gere lui-meme :
+  #    - Le challenge ACME (HTTP-01 sur port 80)
+  #    - Le stockage des certs dans le volume caddy_data
+  #    - Le renouvellement automatique avant expiration
+  # ==========================================================
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: rts-caisse-caddy
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    ports:
+      # 80 : ACME challenge + redirect vers HTTPS
+      - "80:80"
+      # 443 : application en HTTPS
+      - "443:443"
+      # 443/udp : HTTP/3 (QUIC) - optionnel mais gratuit
+      - "443:443/udp"
+    environment:
+      # Variables interpolees dans le Caddyfile via {$VAR}
+      SERVER_NAME:        ${SERVER_NAME:?ERREUR - definir SERVER_NAME dans .env}
+      LETSENCRYPT_EMAIL:  ${LETSENCRYPT_EMAIL:?ERREUR - definir LETSENCRYPT_EMAIL dans .env}
+      TZ: Africa/Dakar
+    volumes:
+      # Caddyfile lecture seule
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Donnees Caddy (certs Let's Encrypt + cache ACME)
+      # CRITIQUE : ne jamais supprimer ce volume sinon Caddy redemande
+      # un nouveau cert (consomme un credit Let's Encrypt)
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - rts-internal
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    name: rts-caisse-postgres-data
+  # Volume contenant les certs Let's Encrypt + l'etat ACME
+  # A SAUVEGARDER pour ne pas re-demander de cert apres redeploy
+  caddy_data:
+    name: rts-caisse-caddy-data
+  caddy_config:
+    name: rts-caisse-caddy-config
+
+networks:
+  rts-internal:
+    name: rts-caisse-network
+    driver: bridge

@@ -1,0 +1,144 @@
+# =============================================================
+#  RTS Caisse - Variante caddy-docker-proxy (config par labels)
+# =============================================================
+#  Identique fonctionnellement au docker-compose.caddy.yml mais
+#  toute la config Caddy est exprimee en LABELS Docker au lieu
+#  d'un Caddyfile.
+#
+#  AVANTAGES :
+#    + Pas de fichier Caddyfile a editer
+#    + Reconfig automatique quand un service apparait/disparait
+#    + Pratique en environnement multi-services dynamique
+#
+#  INCONVENIENTS :
+#    - Necessite de mounter /var/run/docker.sock (risque securite)
+#    - Syntaxe des labels moins lisible qu'un Caddyfile
+#    - Path Docker socket different sous Windows (named pipe)
+#
+#  Pour le projet RTS Caisse (config statique) le Caddyfile classique
+#  est plus simple. Cette variante existe au cas ou tu prefererais.
+# =============================================================
+
+name: rts-caisse
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: rts-caisse-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-rts_caisse_db}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?ERREUR}
+      TZ: Africa/Dakar
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rts-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    image: ${DOCKER_REGISTRY:-vnsu}/rts-caisse-backend:${APP_VERSION:-latest}
+    container_name: rts-caisse-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      POSTGRES_DB:       ${POSTGRES_DB:-rts_caisse_db}
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET:        ${JWT_SECRET:?ERREUR}
+      CORS_ALLOWED_ORIGINS: https://${SERVER_NAME}
+      TZ: Africa/Dakar
+    networks:
+      - rts-internal
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:9090/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    # ----------------------------------------------------------------
+    #  Labels Caddy : routes API vers ce service
+    # ----------------------------------------------------------------
+    labels:
+      caddy: ${SERVER_NAME}
+      # Matcher nomme : tous les paths API
+      caddy.@api.path: /api/* /actuator /actuator/* /health /swagger-ui /swagger-ui/* /v3/api-docs /v3/api-docs/*
+      # Bloc handle pour le matcher @api -> reverse proxy vers backend
+      caddy.0_handle: "@api"
+      caddy.0_handle.reverse_proxy: "{{upstreams 9090}}"
+      caddy.0_handle.reverse_proxy.header_up_0: "X-Forwarded-Proto {scheme}"
+      # Compression
+      caddy.encode: "zstd gzip"
+      # Headers de securite
+      caddy.header.Strict-Transport-Security: '"max-age=31536000; includeSubDomains"'
+      caddy.header.X-Content-Type-Options:    nosniff
+      caddy.header.X-Frame-Options:           SAMEORIGIN
+      caddy.header.-Server: ""
+
+  frontend:
+    image: ${DOCKER_REGISTRY:-vnsu}/rts-caisse-frontend:${APP_VERSION:-latest}
+    container_name: rts-caisse-frontend
+    restart: unless-stopped
+    environment:
+      TZ: Africa/Dakar
+    networks:
+      - rts-internal
+    # ----------------------------------------------------------------
+    #  Labels Caddy : route fallback vers le frontend
+    # ----------------------------------------------------------------
+    labels:
+      caddy: ${SERVER_NAME}
+      # Bloc handle catch-all (apres @api donc 1_)
+      caddy.1_handle: ""
+      caddy.1_handle.reverse_proxy: "{{upstreams 80}}"
+
+  # ==========================================================
+  #  caddy-docker-proxy : Caddy + decouverte des labels
+  # ==========================================================
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    container_name: rts-caisse-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      CADDY_INGRESS_NETWORKS: rts-internal
+      TZ: Africa/Dakar
+    volumes:
+      # Lecture seule du socket Docker (pour decouvrir les labels)
+      # Sous Windows : remplacer par "//./pipe/docker_engine:/var/run/docker.sock"
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - rts-internal
+    labels:
+      # Globals Caddy via labels du container caddy lui-meme
+      caddy.email: ${LETSENCRYPT_EMAIL}
+
+volumes:
+  postgres_data:
+    name: rts-caisse-postgres-data
+  caddy_data:
+    name: rts-caisse-caddy-data
+  caddy_config:
+    name: rts-caisse-caddy-config
+
+networks:
+  rts-internal:
+    name: rts-caisse-network
+    driver: bridge

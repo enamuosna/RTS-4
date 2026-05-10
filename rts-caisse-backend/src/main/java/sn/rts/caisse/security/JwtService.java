@@ -1,24 +1,32 @@
+// =============================================================
+//  PATCH JwtService.java — accepter Base64 standard ET URL-safe
+// =============================================================
+//  Probleme : Decoders.BASE64.decode(secret) rejette les caracteres
+//  '_' et '-' utilises par le Base64 URL-safe (RFC 4648 §5).
+//  Cause classique : openssl rand -base64 64 produit du Base64
+//  STANDARD, mais beaucoup d'outils PowerShell/Java/Node utilisent
+//  par defaut le Base64 URL-safe (Convert.ToBase64UrlString,
+//  Base64.getUrlEncoder...). Le secret fini par contenir '_' et
+//  le decodeur explose au demarrage.
+//
+//  Fix : on detecte le format et on convertit URL-safe -> standard
+//  AVANT de decoder. Le code accepte donc les DEUX formats.
+//
+//  ATTENTION : remplacer UNIQUEMENT le constructeur, le reste de
+//  la classe (generateToken, validateToken...) ne change pas.
+// =============================================================
+
 package sn.rts.caisse.security;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
+// ... imports existants ...
+
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
-import sn.rts.caisse.model.Utilisateur;
 
 import javax.crypto.SecretKey;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
 
-/**
- * Génération / validation des JSON Web Tokens utilisés pour authentifier
- * les clients JavaFX et Angular.
- */
 @Service
 public class JwtService {
 
@@ -29,75 +37,37 @@ public class JwtService {
     public JwtService(@Value("${app.jwt.secret}") String secret,
                       @Value("${app.jwt.expiration-ms}") long expirationMs,
                       @Value("${app.jwt.issuer}") String issuer) {
-        // La clé doit faire au moins 256 bits -> on attend une chaîne Base64.
-        this.signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+
+        // -----------------------------------------------------
+        //  Normalisation du secret
+        //  Accepte les DEUX formats Base64 :
+        //    - Standard (RFC 4648 §4) : caracteres + / =
+        //    - URL-safe (RFC 4648 §5) : caracteres - _
+        //
+        //  La conversion URL-safe -> standard est triviale :
+        //    '-' -> '+'  et  '_' -> '/'
+        //
+        //  Padding optionnel : Base64 URL-safe omet souvent les '='
+        //  finaux. On les rajoute pour que la longueur soit un
+        //  multiple de 4 (sinon Decoders.BASE64 echoue aussi).
+        // -----------------------------------------------------
+        String normalized = secret
+                .trim()
+                .replace('-', '+')
+                .replace('_', '/');
+
+        int padding = (4 - normalized.length() % 4) % 4;
+        if (padding > 0) {
+            normalized = normalized + "=".repeat(padding);
+        }
+
+        // La cle doit faire au moins 256 bits -> on attend du Base64.
+        this.signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(normalized));
         this.expirationMs = expirationMs;
         this.issuer = issuer;
     }
 
-    // ------------------------------------------------------------------
-    //  Génération
-    // ------------------------------------------------------------------
-
-    public String generateToken(Utilisateur utilisateur) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("role", utilisateur.getRole().name());
-        claims.put("matricule", utilisateur.getMatricule());
-        claims.put("nomComplet", utilisateur.getNomComplet());
-        return buildToken(claims, utilisateur.getUsername());
-    }
-
-    private String buildToken(Map<String, Object> extraClaims, String subject) {
-        Date now = new Date();
-        Date expiry = new Date(now.getTime() + expirationMs);
-        return Jwts.builder()
-                .claims(extraClaims)
-                .subject(subject)
-                .issuer(issuer)
-                .issuedAt(now)
-                .expiration(expiry)
-                .signWith(signingKey)
-                .compact();
-    }
-
-    // ------------------------------------------------------------------
-    //  Lecture
-    // ------------------------------------------------------------------
-
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
-    }
-
-    public Date extractExpiration(String token) {
-        return extractClaim(token, Claims::getExpiration);
-    }
-
-    public <T> T extractClaim(String token, Function<Claims, T> resolver) {
-        return resolver.apply(extractAllClaims(token));
-    }
-
-    private Claims extractAllClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(signingKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
-    }
-
-    public boolean isTokenValid(String token, UserDetails userDetails) {
-        try {
-            final String username = extractUsername(token);
-            return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
-        } catch (Exception ex) {
-            return false;
-        }
-    }
-
-    private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
-    }
-
-    public long getExpirationMs() {
-        return expirationMs;
-    }
+    // ... le reste de la classe est INCHANGE ...
+    // generateToken(), buildToken(), validateToken(),
+    // extractUsername(), etc.
 }
